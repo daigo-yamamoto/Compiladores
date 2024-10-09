@@ -1,0 +1,5 @@
+- Baixar o código
+- Rodar killbuild na raiz (pra criar pastas necessárias)
+- Compilar e rodar: Entrar na build e rodar: sudo bash ../VcompLabAluno.bash
+- Gerar comparativo: dentro de build rodar: sudo make lexdiff
+- rodar na raiz pra comparar os diffs: batcat alunodetail/*lex*diff
