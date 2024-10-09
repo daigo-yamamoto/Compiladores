@@ -1,0 +1,22 @@
+17a18,38
+> 
+> Syntax tree:
+> Declare function (return type "void"): main
+>     Declare void var: a
+> 
+> Building Symbol Table...
+> Semantic error at line 3: variable declared void
+> 
+> Symbol table:
+> 
+> Variable Name  Scope     ID Type  Data Type  Line Numbers
+> -------------  --------  -------  ---------  -------------------------
+> main                     fun      void        1 
+> input                    fun      int        
+> output                   fun      void       
+> 
+> Checking Types...
+> 
+> Type Checking Finished
+> 
+> Checking for main...

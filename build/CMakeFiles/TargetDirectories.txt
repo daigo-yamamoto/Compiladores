@@ -1,0 +1,8 @@
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/mycmcomp.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/runmycmcomp.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/rundiff.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/ddiff.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/lexdiff.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/tiny.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/edit_cache.dir
+/home/bruno-yamamoto/Documents/ita/Compiladores/build/CMakeFiles/rebuild_cache.dir

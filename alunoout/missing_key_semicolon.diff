@@ -1,0 +1,49 @@
+45,87c45,48
+< 9: void main(void)
+< 	9: reserved word: void
+< 	9: ID, name= main
+< 	9: (
+< 	9: reserved word: void
+< 	9: )
+< 10: {
+< 	10: {
+< 11:     int x;
+< 	11: reserved word: int
+< 	11: ID, name= x
+< 	11: ;
+< 12:     int y;
+< 	12: reserved word: int
+< 	12: ID, name= y
+< 	12: ;
+< 13:     x = input();
+< 	13: ID, name= x
+< 	13: =
+< 	13: ID, name= input
+< 	13: (
+< 	13: )
+< 	13: ;
+< 14:     y = input();
+< 	14: ID, name= y
+< 	14: =
+< 	14: ID, name= input
+< 	14: (
+< 	14: )
+< 	14: ;
+< 15:     output(gcd(x,y));
+< 	15: ID, name= output
+< 	15: (
+< 	15: ID, name= gcd
+< 	15: (
+< 	15: ID, name= x
+< 	15: ,
+< 	15: ID, name= y
+< 	15: )
+< 	15: )
+< 	15: ;
+< 16: 
+< 	17: EOF
+---
+> Syntax error at line 8: syntax error
+> Current token: }
+> 
+> Syntax tree:

@@ -1,0 +1,36 @@
+59,88c59,62
+< 	12: ID, name= y
+< 	12: ;
+< 13:     x = input();
+< 	13: ID, name= x
+< 	13: =
+< 	13: ID, name= input
+< 	13: (
+< 	13: )
+< 	13: ;
+< 14:     y = input();
+< 	14: ID, name= y
+< 	14: =
+< 	14: ID, name= input
+< 	14: (
+< 	14: )
+< 	14: ;
+< 15:     output(gcd(x,y));
+< 	15: ID, name= output
+< 	15: (
+< 	15: ID, name= gcd
+< 	15: (
+< 	15: ID, name= x
+< 	15: ,
+< 	15: ID, name= y
+< 	15: )
+< 	15: )
+< 	15: ;
+< 16: }
+< 	16: }
+< 	16: EOF
+---
+> Syntax error at line 12: syntax error
+> Current token: reserved word: int
+> 
+> Syntax tree:
