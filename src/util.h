@@ -33,4 +33,12 @@ char * copyString( char * );
  */
 void printTree( TreeNode * );
 
+/* Procedure printLine prints a full line
+ * of the source code, with its number 
+ */
+void printLine(FILE* redundant_source);
+
+TreeNode * newTypeNode(TypeKind type);
+TreeNode * newIdNode(IdKind kind);
+
 #endif

@@ -16,7 +16,27 @@
 #include "scan.h"
 /* lexeme of identifier or reserved word */
 char tokenString[MAXTOKENLEN+1];
+
+int numValue;
+
+/* stores the lexeme of ID tokens */
+char* savedId[128];
+int savedIdIndex = -1;
+
+void saveId(char *id) {
+  savedId[++savedIdIndex] = copyString(id);
+}
+
+char *popId() {
+  if (savedIdIndex < 0) {
+    return "";
+  }
+  
+  return savedId[savedIdIndex--];
+}
+
 %}
+
 digit       [0-9]
 number      {digit}+
 letter      [a-zA-Z]

@@ -94,7 +94,7 @@ TreeNode * newExpNode(ExpKind kind)
     t->nodekind = ExpK;
     t->kind.exp = kind;
     t->lineno = lineno;
-    t->type = Void;
+    t->type = VoidType;
   }
   return t;
 }
@@ -130,57 +130,145 @@ static void printSpaces(void)
     pc(" ");
 }
 
-/* procedure printTree prints a syntax tree to the 
- * listing file using indentation to indicate subtrees
- */
-void printTree( TreeNode * tree )
-{ int i;
+void printTree(TreeNode *tree)
+{
+  int i;
   INDENT;
-  while (tree != NULL) {
-    printSpaces();
-    if (tree->nodekind==StmtK)
-    { switch (tree->kind.stmt) {
-        case IfK:
+  while (tree != NULL)
+  {
+      printSpaces();
+      if (tree->nodekind == StmtK)
+      {
+        switch (tree->kind.stmt)
+        {
+        case If:
           pc("If\n");
           break;
-        case RepeatK:
-          pc("Repeat\n");
+        case Assign:
+          pc("Assign\n");
           break;
-        case AssignK:
-          pc("Assign to: %s\n",tree->attr.name);
-          break;
-        case ReadK:
-          pc("Read: %s\n",tree->attr.name);
-          break;
-        case WriteK:
-          pc("Write\n");
+        case While:
+          pc("While\n");
           break;
         default:
-          pce("Unknown ExpNode kind\n");
+          pce("Unknown StmtKNode kind\n");
           break;
+        }
       }
-    }
-    else if (tree->nodekind==ExpK)
-    { switch (tree->kind.exp) {
-        case OpK:
-          pc("Op: ");
-          printToken(tree->attr.op,"\0");
+      else if (tree->nodekind == ExpK)
+      {
+        switch (tree->kind.exp)
+        {
+        case Operator:
+          pc("While\n");
+          printToken(tree->attr.op, "\0");
           break;
-        case ConstK:
-          pc("Const: %d\n",tree->attr.val);
+        case Constant:
+          pc("Const: %d\n", tree->attr.val);
           break;
-        case IdK:
-          pc("Id: %s\n",tree->attr.name);
+        case Return:
+          pc("Return: \n");
           break;
         default:
-          pce("Unknown ExpNode kind\n");
+          pce("Unknown ExpKNode kind\n");
           break;
+        }
       }
-    }
-    else pce("Unknown node kind\n");
-    for (i=0;i<MAXCHILDREN;i++)
-         printTree(tree->child[i]);
-    tree = tree->sibling;
+      else if (tree->nodekind == Id)
+      {
+        switch(tree->kind.id)
+        {
+        case Variable:
+          pc("VariableId: %s\n", tree->attr.name);
+          break;
+        case Array:
+          pc("ArrayId: %s\n", tree->attr.name);
+          break;
+        case Function:
+          pc("FunctionId: %s\n", tree->attr.name);
+          break;
+        default:
+          pce("Unknown IdNode kind\n");
+          break;
+        }
+      }
+      else if (tree->nodekind == Type) 
+      {
+        switch(tree->kind.type)
+        {
+        case Void:
+          pc("Type: Void\n");
+          break;
+        case Int:
+          pc("Type: Int\n");
+          break;
+        default:
+          pce("Unknown TypeNode kind\n");
+          break;
+        }
+      }
+      else
+        pc("Unknown node kind\n");
+      for (i = 0; i < MAXCHILDREN; i++)
+        printTree(tree->child[i]);
+      if (tree->sibling != NULL) {
+        printSpaces();
+        pc("||\n");
+      }
+      tree = tree->sibling;
   }
   UNINDENT;
+}
+
+/* Procedure printLine prints a full line
+ * of the source code, with its number
+ * reduntand_source is ANOTHER instance 
+ * of file pointer opened with the source code.
+ */
+void printLine(FILE* redundant_source){
+  char line[1024];
+  char *ret = fgets(line, 1024, redundant_source);
+  // If an error occurs, or if end-of-file is reached and no characters were read, fgets returns NULL.
+  if (ret) { pc( "%d: %-1s",lineno, line); 
+             // if EOF, the string does not contain \n. add it to separate from EOF token
+             if (feof(redundant_source)) pc("\n");
+           } 
+}
+
+TreeNode *newTypeNode(TypeKind kind)
+{
+  TreeNode *t = (TreeNode *)malloc(sizeof(TreeNode));
+  int i;
+  if (t == NULL)
+      pce("Out of memory error at line %d\n", lineno);
+  else
+  {
+      for (i = 0; i < MAXCHILDREN; i++)
+        t->child[i] = NULL;
+      t->sibling = NULL;
+      t->parent = NULL;
+      t->nodekind = Type;
+      t->kind.type = kind;
+      t->lineno = lineno;
+  }
+  return t;
+}
+
+TreeNode *newIdNode(IdKind kind)
+{
+  TreeNode *t = (TreeNode *)malloc(sizeof(TreeNode));
+  int i;
+  if (t == NULL)
+    pc("Out of memory error at line %d\n", lineno);
+  else
+  {
+    for (i = 0; i < MAXCHILDREN; i++)
+      t->child[i] = NULL;
+    t->sibling = NULL;
+    t->parent = NULL;
+    t->nodekind = Id;
+    t->kind.id = kind;
+    t->lineno = lineno;
+  }
+  return t;
 }

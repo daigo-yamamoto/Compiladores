@@ -14,6 +14,12 @@
 #include <ctype.h>
 #include <string.h>
 #include "log.h"
+#include "scopetree.h"
+
+#ifndef YYPARSER
+#include "parser.h"
+#define ENDFILE 0
+#endif
 
 #ifndef FALSE
 #define FALSE 0
@@ -26,17 +32,18 @@
 /* MAXRESERVED = the number of reserved words */
 #define MAXRESERVED 8
 
-typedef enum 
-    /* book-keeping tokens */
-   {ENDFILE,ERROR,NEWLINE,COMMENT,
-    /* reserved words */
-    ELSE, IF, INT, RETURN, VOID, WHILE,
-    /* multicharacter tokens */
-    ID,NUM,
-    /* special symbols */
-    PLUS, MINUS, TIMES, OVER, LT, LTE, RT, RTE, EQ, DIF, ASSIGN, SEMI, COL,
-    LPAREN, RPAREN, LBRCKS, RBRCKS, LCURBR, RCURBR
-   } TokenType;
+// typedef enum 
+//     /* book-keeping tokens */
+//    {ENDFILE,ERROR,NEWLINE,COMMENT,
+//     /* reserved words */
+//     ELSE, IF, INT, RETURN, VOID, WHILE,
+//     /* multicharacter tokens */
+//     ID,NUM,
+//     /* special symbols */
+//     PLUS, MINUS, TIMES, OVER, LT, LTE, RT, RTE, EQ, DIF, ASSIGN, SEMI, COL,
+//     LPAREN, RPAREN, LBRCKS, RBRCKS, LCURBR, RCURBR
+//    } TokenType;
+typedef int TokenType;
 
 extern FILE* source; /* source code text file */
 extern FILE* listing; /* listing output text file */
@@ -44,26 +51,32 @@ extern FILE* code; /* code text file for TM simulator */
 extern FILE* redundant_source;
 
 extern int lineno; /* source line number for listing */
+extern ScopeNode *scopeTree; /* scope tree */
+extern ScopeNode *currentScope; /* current scope node */
 
 /**************************************************/
 /***********   Syntax tree for parsing ************/
 /**************************************************/
 
-typedef enum {StmtK,ExpK} NodeKind;
-typedef enum {IfK,RepeatK,AssignK,ReadK,WriteK} StmtKind;
-typedef enum {OpK,ConstK,IdK} ExpKind;
+typedef enum {StmtK, ExpK, Id, Type} NodeKind;
+typedef enum {If, Assign, While} StmtKind;
+typedef enum {Operator, Constant, Return} ExpKind;
+typedef enum {Variable, Array, Function} IdKind;
+typedef enum {Void, Int} TypeKind;
 
 /* ExpType is used for type checking */
-typedef enum {Void,Integer,Boolean} ExpType;
+typedef enum {VoidType,IntegerType,BooleanType} ExpType;
 
 #define MAXCHILDREN 3
 
 typedef struct treeNode
    { struct treeNode * child[MAXCHILDREN];
      struct treeNode * sibling;
+     struct treeNode * parent;
      int lineno;
+     ScopeNode *scopeNode;
      NodeKind nodekind;
-     union { StmtKind stmt; ExpKind exp;} kind;
+     union { StmtKind stmt; ExpKind exp; IdKind id; TypeKind type;} kind;
      union { TokenType op;
              int val;
              char * name; } attr;
