@@ -43,8 +43,8 @@ void printToken( TokenType token, const char* tokenString )
     case TIMES: pc("*\n"); break;
     case OVER: pc("/\n"); break;
     case ENDFILE: pc("EOF\n"); break;
-    case NEWLINE: pc("\n"); break;
-    case COMMENT: pc("\n"); break;
+    //case NEWLINE: pc("\n"); break;
+    //case COMMENT: pc("\n"); break;
     case NUM:
       pc(
           "NUM, val= %s\n",tokenString);

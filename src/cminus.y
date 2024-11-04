@@ -26,7 +26,6 @@ int yyerror(char *);
 %token PLUS MINUS TIMES OVER LT LTE RT RTE 
              EQ DIF ASSIGN SEMI COL LPAREN RPAREN LBRCKS 
              RBRCKS LCURBR RCURBR
-%token NEWLINE COMMENT
 %token ERROR
 
 %% /* Grammar for TINY */
