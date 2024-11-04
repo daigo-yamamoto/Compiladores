@@ -85,7 +85,7 @@ int main( int argc, char * argv[] )
     // for the lexical analysis, you might change LOGALL to LER, to generate only lex and err outputs.
       
   fprintf(listing,"\nTINY COMPILATION: %s\n",pgm);
-  doneLEXstartSYN();
+  
 #if NO_PARSE
   while (getToken()!=ENDFILE);
 #else
@@ -120,6 +120,7 @@ int main( int argc, char * argv[] )
 #endif
 #endif
 #endif
+  doneLEXstartSYN();
   fclose(source);
   fclose(redundant_source); // Close the redundant source file
   return 0;
