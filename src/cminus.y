@@ -47,7 +47,7 @@ declaracao_lista    : declaracao_lista declaracao {
                     ;
 declaracao          : var_declaracao { $$ = $1; }
                     | fun_declaracao { $$ = $1; }
-                    | error { $$ = NULL; }
+                    //| error { $$ = NULL; }
                     ;
 var_declaracao      : tipo_especificador ID SEMI {
                       $$ = $1;
@@ -252,7 +252,7 @@ soma_expressao      : soma_expressao soma termo {
                       $$ = $2;
                       $$->child[0] = $3;
                       $$->child[1] = $1;
-                      if ($$->child[0]->nodekind == ExpK && $$->child[1]->nodekind == Id) {
+                      if ($$->child[0]->nodekind == ExpK && $$->child[1]->nodekind == IdK) {
                         YYSTYPE t = $$->child[0];
                         $$->child[0] = $$->child[1];
                         $$->child[1] = t;
