@@ -58,9 +58,9 @@ extern ScopeNode *currentScope; /* current scope node */
 /***********   Syntax tree for parsing ************/
 /**************************************************/
 
-typedef enum {StmtK, ExpK, Id, Type} NodeKind;
+typedef enum {StmtK, ExpK, IdK, TypeK} NodeKind;
 typedef enum {If, Assign, While} StmtKind;
-typedef enum {Operator, Constant, Return} ExpKind;
+typedef enum {Operator, Constant, Return, FunctionCall} ExpKind;
 typedef enum {Variable, Array, Function} IdKind;
 typedef enum {Void, Int} TypeKind;
 

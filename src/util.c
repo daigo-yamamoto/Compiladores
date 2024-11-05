@@ -174,7 +174,7 @@ void printTree(TreeNode *tree)
           break;
         }
       }
-      else if (tree->nodekind == Id)
+      else if (tree->nodekind == IdK)
       {
         switch(tree->kind.id)
         {
@@ -192,7 +192,7 @@ void printTree(TreeNode *tree)
           break;
         }
       }
-      else if (tree->nodekind == Type) 
+      else if (tree->nodekind == TypeK) 
       {
         switch(tree->kind.type)
         {
@@ -247,7 +247,7 @@ TreeNode *newTypeNode(TypeKind kind)
         t->child[i] = NULL;
       t->sibling = NULL;
       t->parent = NULL;
-      t->nodekind = Type;
+      t->nodekind = TypeK;
       t->kind.type = kind;
       t->lineno = lineno;
   }
@@ -266,7 +266,7 @@ TreeNode *newIdNode(IdKind kind)
       t->child[i] = NULL;
     t->sibling = NULL;
     t->parent = NULL;
-    t->nodekind = Id;
+    t->nodekind = IdK;
     t->kind.id = kind;
     t->lineno = lineno;
   }
