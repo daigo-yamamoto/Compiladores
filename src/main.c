@@ -16,7 +16,7 @@
 /* set NO_CODE to TRUE to get a compiler that does not
  * generate code
  */
-#define NO_CODE FALSE
+#define NO_CODE TRUE
 
 #include "util.h"
 #if NO_PARSE
@@ -81,15 +81,15 @@ int main( int argc, char * argv[] )
     //// end opening sources ////
     
     listing = stdout; /* send messages from main() to screen */
-    initializePrinter(detailpath, pgm, LER);// init logger in /lib/log.c
+    initializePrinter(detailpath, pgm, LOGALL);// init logger in /lib/log.c
     // for the lexical analysis, you might change LOGALL to LER, to generate only lex and err outputs.
       
   fprintf(listing,"\nTINY COMPILATION: %s\n",pgm);
-  
 #if NO_PARSE
   while (getToken()!=ENDFILE);
 #else
   syntaxTree = parse();
+  doneLEXstartSYN();
   if (TraceParse) {
     fprintf(listing,"\nSyntax tree:\n");
     printTree(syntaxTree);
@@ -120,7 +120,6 @@ int main( int argc, char * argv[] )
 #endif
 #endif
 #endif
-  doneLEXstartSYN();
   fclose(source);
   fclose(redundant_source); // Close the redundant source file
   return 0;
