@@ -250,13 +250,8 @@ relacional          : LTE     {
                     ;
 soma_expressao      : soma_expressao soma termo { 
                       $$ = $2;
-                      $$->child[0] = $3;
-                      $$->child[1] = $1;
-                      if ($$->child[0]->nodekind == ExpK && $$->child[1]->nodekind == IdK) {
-                        YYSTYPE t = $$->child[0];
-                        $$->child[0] = $$->child[1];
-                        $$->child[1] = t;
-                      }
+                      $$->child[0] = $1;
+                      $$->child[1] = $3;
                       $$->child[0]->parent = $$;
                       $$->child[1]->parent = $$;
                     }
