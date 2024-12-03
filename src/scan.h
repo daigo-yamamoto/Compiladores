@@ -14,6 +14,9 @@
 /* tokenString array stores the lexeme of each token */
 extern char tokenString[MAXTOKENLEN+1];
 
+extern int numValue;
+extern char *popId();
+
 /* function getToken returns the 
  * next token in source file
  */

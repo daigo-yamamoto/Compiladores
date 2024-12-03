@@ -16,7 +16,27 @@
 #include "scan.h"
 /* lexeme of identifier or reserved word */
 char tokenString[MAXTOKENLEN+1];
+
+int numValue;
+
+/* stores the lexeme of ID tokens */
+char* savedId[128];
+int savedIdIndex = -1;
+
+void saveId(char *id) {
+  savedId[++savedIdIndex] = copyString(id);
+}
+
+char *popId() {
+  if (savedIdIndex < 0) {
+    return "";
+  }
+  
+  return savedId[savedIdIndex--];
+}
+
 %}
+
 digit       [0-9]
 number      {digit}+
 letter      [a-zA-Z]
@@ -49,22 +69,22 @@ whitespace  [ \t]+
 "]"             {return RBRCKS;}
 "{"             {return LCURBR;}
 "}"             {return RCURBR;}
-{number}        {return NUM;}
-{identifier}    {return ID;}
-{newline}       {lineno++; return NEWLINE;}
+{number}        {numValue = atoi(yytext); return NUM;}
+{identifier}    {saveId(yytext); return ID;}
+{newline}       {lineno++; /* skip */}
 {whitespace}    {/* skip whitespace */}
 "/*"             { char c;
                   int flag1 = 0;
                   int flag2 = 0;
-                  do
-                  { c = input();
+                  do {
+                    c = input();
                     if (c == EOF) break;
                     if (c == '\n') lineno++;
                     if (c == '*') flag1 = 1;
                     if (c == '/' && flag1 == 1) flag2 = 1;
                     if (c != '*') flag1 = 0;
                   } while (!flag2);
-                  return COMMENT;
+                  /* skip */ 
                 }
 .               {return ERROR;}
 %%
@@ -111,7 +131,7 @@ TokenType getToken(void)
         prev_lineno = lineno;
     }
 
-    if (TraceScan && currentToken != NEWLINE && currentToken != COMMENT)
+    if (TraceScan)
     {
         pc("\t%d: ", lineno);
         printToken(currentToken, tokenString);
