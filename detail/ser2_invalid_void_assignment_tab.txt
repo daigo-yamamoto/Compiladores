@@ -1,3 +1,4 @@
+Semantic error at line 9: invalid use of void expression
 
 Symbol table:
 
@@ -8,4 +9,3 @@ main                     fun      void        6
 input                    fun      int        
 exemplo                  fun      void        1  9 
 output                   fun      void        3 
-Semantic error at line 9: invalid use of void expression
