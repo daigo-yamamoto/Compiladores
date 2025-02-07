@@ -43,7 +43,7 @@ static void insertBuiltIns(void)
     /* input() => retorna int, scope="", idType="fun" */
     st_insert("input", 0, "", "fun", "int");
 
-    /* output() => retorna void, scope="" */
+    /* output() => retorna void, scope="", idType="fun" */
     st_insert("output", 0, "", "fun", "void");
 }
 
@@ -57,21 +57,15 @@ static void insertDecl_pre(TreeNode *t)
     if (t->nodekind == IdK)
     {
         /* 1) Declaração de função (kind.id == Function).
-         *    Só ocorre se o pai for TypeK, indicando
-         *    realmente uma definição/declaração de função. */
+         *    Só ocorre se o pai for TypeK => é realmente declaração/definição. */
         if (t->kind.id == Function)
         {
             if (t->parent && t->parent->nodekind == TypeK)
             {
-                /* Recupera nome da função */
                 char *name = t->attr.name;
 
-                /* Verifica se o pai (TypeK) é int ou void */
-                char *dataType = "int";
-                if (t->parent->kind.type == Void)
-                    dataType = "void";
-                else
-                    dataType = "int";
+                /* Se o TypeK do pai é int ou void */
+                char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
 
                 /* Escopo global = "" */
                 st_insert(name, t->lineno, "", "fun", dataType);
@@ -79,14 +73,14 @@ static void insertDecl_pre(TreeNode *t)
                 if (!strcmp(name, "main"))
                     foundMain = 1;
 
-                /* Muda escopo p/ o nome da função */
+                /* Muda escopo para o nome da função */
                 strcpy(currentScopeName, name);
             }
         }
         /* 2) Declaração de variável ou array */
         else if (t->kind.id == Variable || t->kind.id == Array)
         {
-            /* Só é DECLARAÇÃO se o pai for TypeK */
+            /* Só é declaração se o pai for TypeK */
             if (t->parent && t->parent->nodekind == TypeK)
             {
                 char *name = t->attr.name;
@@ -107,7 +101,7 @@ static void insertDecl_post(TreeNode *t)
 
     if (t->nodekind == IdK && t->kind.id == Function)
     {
-        /* terminou corpo da função => volta p/ global,
+        /* terminou corpo da função => volta para escopo global,
          * mas só se este IdK realmente era declaração (pai TypeK) */
         if (t->parent && t->parent->nodekind == TypeK)
         {
@@ -119,15 +113,21 @@ static void insertDecl_post(TreeNode *t)
 /*--------------------------------------------------*/
 /* Passada 2: Insere USOS e checa se declarados     */
 /*--------------------------------------------------*/
+/* 
+   A diferença aqui é que, ao registrar um uso, 
+   buscamos primeiro no escopo local e, se não acharmos, 
+   buscamos no global. Só então chamamos st_insert 
+   com o escopo CORRETO (onde ele foi achado).
+*/
 static void insertUse_pre(TreeNode *t)
 {
     if (t == NULL) return;
     if (t->nodekind != IdK) return;
 
-    /* 1) Se for Function e o pai for TypeK => DEFINIÇÃO (de novo) */
+    /* 1) Se for Function e o pai for TypeK => DEFINIÇÃO novamente (já inserida) */
     if (t->kind.id == Function && t->parent && t->parent->nodekind == TypeK)
     {
-        /* É a definição de função (já inserida). Entramos no escopo dela */
+        /* Entramos no escopo dela */
         strcpy(currentScopeName, t->attr.name);
         return;
     }
@@ -136,64 +136,73 @@ static void insertUse_pre(TreeNode *t)
     if (t->kind.id == FunctionCall)
     {
         char *name = t->attr.name;
-        /* Funções sempre estão no escopo global */
-        int found = st_lookup(name, "");
-        if (!found)
+
+        /* Tenta local (caso admitamos função local) e global */
+        int foundLocal  = st_lookup_local(name, currentScopeName);
+        int foundGlobal = st_lookup_local(name, ""); /* escopo global */
+
+        if (!foundLocal && !foundGlobal)
         {
             semanticError(t->lineno, "'%s' was not declared in this scope", name);
-            /* Não faz st_insert para não "inventar" a função */
         }
         else
         {
-            /* Registra o uso (não sobrescreve tipo) => (NULL, NULL) */
-            st_insert(name, t->lineno, "", NULL, NULL);
-        }
-        return;
-    }
-
-    /* 3) Se for Variable ou Array => uso de variável (se pai não é TypeK) */
-    if (t->kind.id == Variable || t->kind.id == Array)
-    {
-        /* Se o pai NÃO for TypeK => USO */
-        if (!(t->parent && t->parent->nodekind == TypeK))
-        {
-            char *name = t->attr.name;
-            int found = st_lookup(name, currentScopeName);
-            if (!found)
-            {
-                /* não encontrado nem no escopo atual nem global => erro */
-                semanticError(t->lineno, "'%s' was not declared in this scope", name);
-            }
-            else
-            {
-                /* registra linha de uso => (NULL, NULL) */
+            /* se achou local, registra uso no local. 
+               caso contrário, registra uso no global */
+            if (foundLocal)
                 st_insert(name, t->lineno, currentScopeName, NULL, NULL);
-            }
+            else
+                st_insert(name, t->lineno, "", NULL, NULL);
         }
         return;
     }
 
-    /* 4) Caso seu parser não separe FunctionCall de Function,
-     *    mas aqui percebamos que é chamada => heurística:
-     *    Se nodekind=IdK e kind.id=Function, mas pai NÃO é TypeK,
-     *    provavelmente é chamada => uso de função. */
-    if (t->kind.id == Function)
+    /* 3) Se for Variable ou Array => uso de variável (se pai NÃO for TypeK) */
+    if ((t->kind.id == Variable || t->kind.id == Array) &&
+        !(t->parent && t->parent->nodekind == TypeK))
     {
-        /* Se pai não é TypeK => deve ser chamada => uso */
-        if (!(t->parent && t->parent->nodekind == TypeK))
+        char *name = t->attr.name;
+
+        int foundLocal  = st_lookup_local(name, currentScopeName);
+        int foundGlobal = st_lookup_local(name, "");
+
+        if (!foundLocal && !foundGlobal)
         {
-            char *name = t->attr.name;
-            int found = st_lookup(name, "");
-            if (!found)
-            {
-                semanticError(t->lineno, "'%s' was not declared in this scope", name);
-            }
-            else
-            {
-                st_insert(name, t->lineno, "", NULL, NULL);
-            }
-            /* não altera currentScopeName */
+            semanticError(t->lineno, "'%s' was not declared in this scope", name);
         }
+        else
+        {
+            if (foundLocal)
+                st_insert(name, t->lineno, currentScopeName, NULL, NULL);
+            else
+                st_insert(name, t->lineno, "", NULL, NULL);
+        }
+        return;
+    }
+
+    /* 4) Caso o parser não separe FunctionCall de Function, 
+       mas aqui percebamos que é chamada => heurística:
+       Se nodekind=IdK e kind.id=Function, mas pai NÃO é TypeK,
+       provavelmente é chamada => uso de função. */
+    if (t->kind.id == Function && !(t->parent && t->parent->nodekind == TypeK))
+    {
+        char *name = t->attr.name;
+
+        int foundLocal  = st_lookup_local(name, currentScopeName);
+        int foundGlobal = st_lookup_local(name, "");
+
+        if (!foundLocal && !foundGlobal)
+        {
+            semanticError(t->lineno, "'%s' was not declared in this scope", name);
+        }
+        else
+        {
+            if (foundLocal)
+                st_insert(name, t->lineno, currentScopeName, NULL, NULL);
+            else
+                st_insert(name, t->lineno, "", NULL, NULL);
+        }
+        /* não altera currentScopeName */
     }
 }
 

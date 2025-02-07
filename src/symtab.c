@@ -63,8 +63,7 @@ static int sameNameScope(BucketList b, const char *name, const char *scope)
 {
     if (!b) return 0;
     if (strcmp(b->name, name) != 0) return 0;
-    if (strcmp(b->scope, scope) == 0) return 1;
-    return 0;
+    return (strcmp(b->scope, scope) == 0);
 }
 
 /*---------------------------------------------*/
@@ -105,7 +104,6 @@ static BucketList newBucket(const char *name, const char *scope,
     newB->dataType = (dataType) ? copyString(dataType) : NULL;
     newB->next     = NULL;
 
-    /* Cria a lista de linhas apenas se lineno != 0 (não é built-in na declaração) */
     if (lineno != 0)
     {
         LineList ll  = (LineList)malloc(sizeof(*ll));
@@ -123,10 +121,8 @@ static BucketList newBucket(const char *name, const char *scope,
 
 /*-------------------------------------------------------*/
 /* st_insert: Insere (ou atualiza) um símbolo na TS      */
-/*  - Se 'idType' != NULL => significa DECLARAÇÃO        */
-/*    => sobrescreve idType/dataType (atualiza)          */
-/*  - Se 'idType' == NULL => significa USO               */
-/*    => adiciona a linha, caso não exista               */
+/*  - Se 'idType' != NULL => é DECLARAÇÃO => atualiza    */
+/*  - Se 'idType' == NULL => é USO => só adiciona linha  */
 /*-------------------------------------------------------*/
 void st_insert(const char *name, int lineno,
                const char *scope,
@@ -138,43 +134,38 @@ void st_insert(const char *name, int lineno,
     BucketList prev = NULL;
 
     /* Tenta achar (name, scope) na lista ligada */
-    while (l != NULL && !(sameNameScope(l, name, scope)))
+    while (l != NULL && !sameNameScope(l, name, scope))
     {
         prev = l;
         l = l->next;
     }
 
-    /*------------------------------------------------*/
-    /* Se não achou, cria um novo bucket e adiciona    */
-    /*------------------------------------------------*/
     if (l == NULL)
     {
+        /* Não achou => cria um novo bucket e adiciona */
         BucketList newB = newBucket(name, scope, idType, dataType, lineno);
 
-        /* Encadeia na lista do hash */
         if (prev == NULL)
             hashTable[h] = newB;
         else
             prev->next = newB;
 
-        /* Armazena no array para imprimir na ordem de inserção */
+        /* Salva no array para impressão na ordem de inserção */
         symbolArray[symbolCount++] = newB;
     }
-    /*------------------------------------------------*/
-    /* Se já existe, possivelmente atualiza ou adiciona uso */
-    /*------------------------------------------------*/
     else
     {
-        /* Se for DECLARAÇÃO (idType != NULL), atualiza idType/dataType */
+        /* Já existe no escopo: possivelmente atualiza ou adiciona linha de uso */
         if (idType != NULL)
         {
+            /* sobrescreve o que tinha */
             free(l->idType);
             free(l->dataType);
             l->idType   = copyString(idType);
             l->dataType = copyString(dataType);
         }
 
-        /* Se for USO (lineno != 0), adiciona linha se ainda não existir */
+        /* Adiciona linha de uso, se ainda não existir */
         if (lineno != 0 && !alreadyHasLine(l->lines, lineno))
         {
             if (l->lines == NULL)
@@ -200,7 +191,8 @@ void st_insert(const char *name, int lineno,
 
 /*------------------------------------------------------------*/
 /* st_lookup: Retorna 1 se encontrar 'name' no 'scope'        */
-/* ou no escopo global (""), senão retorna 0                  */
+/* OU no escopo global (""), senão retorna 0.                 */
+/* (Uso original. Mantemos para não quebrar outras partes.)   */
 /*------------------------------------------------------------*/
 int st_lookup(const char *name, const char *scope)
 {
@@ -231,8 +223,27 @@ int st_lookup(const char *name, const char *scope)
 }
 
 /*------------------------------------------------------------*/
-/* printSymTab: Imprime a Tabela de Símbolos na ordem de      */
-/* inserção (symbolArray[0..symbolCount-1]).                  */
+/* st_lookup_local: Retorna 1 se achar (name, scope) exato,   */
+/* senão retorna 0. (Não tenta o escopo global!)              */
+/* Útil para sabermos em qual escopo realmente está o símbolo.*/
+/*------------------------------------------------------------*/
+int st_lookup_local(const char *name, const char *scope)
+{
+    int h = hash(name);
+    BucketList l = hashTable[h];
+
+    while (l != NULL)
+    {
+        if (sameNameScope(l, name, scope))
+            return 1;
+        l = l->next;
+    }
+    return 0;
+}
+
+/*------------------------------------------------------------*/
+/* printSymTab: Imprime a Tabela de Símbolos na ordem         */
+/* de inserção (symbolArray[0..symbolCount-1]).               */
 /*------------------------------------------------------------*/
 void printSymTab(void)
 {
@@ -252,15 +263,13 @@ void printSymTab(void)
         pc("%-8s ", idt);
         pc("%-10s ", dt);
 
-        /* Agora SEM ignorar linhas para input/output:
-           sempre imprimimos se houver linhas armazenadas. */
+        /* Imprime as linhas onde o símbolo aparece */
         LineList t = b->lines;
         while (t != NULL)
         {
             pc("%2d ", t->lineno);
             t = t->next;
         }
-
         pc("\n");
     }
 }
