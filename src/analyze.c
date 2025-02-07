@@ -17,7 +17,7 @@
 /* Contador de erros semânticos */
 static int semanticErrors = 0;
 
-/* Se encontramos "main" */
+/* Indica se encontramos "main" em alguma definição de função */
 static int foundMain = 0;
 
 /* Escopo atual (por ex: "main", "f", "g", etc.) */
@@ -36,7 +36,7 @@ static void semanticError(int lineno, const char *msgFormat, const char *id)
 
 /*--------------------------------------------------*/
 /* Insere as funções built-in "input" e "output"    */
-/* na tabela de símbolos com lineno=0               */
+/* na tabela de símbolos, com lineno=0 (sem linhas) */
 /*--------------------------------------------------*/
 static void insertBuiltIns(void)
 {
@@ -52,34 +52,38 @@ static void insertBuiltIns(void)
 /*--------------------------------------------------*/
 static void insertDecl_pre(TreeNode *t)
 {
-    switch (t->nodekind)
+    if (t == NULL) return;
+
+    if (t->nodekind == IdK)
     {
-    case IdK:
-        /* Declaração de função */
+        /* 1) Declaração de função (kind.id == Function).
+         *    Só ocorre se o pai for TypeK, indicando
+         *    realmente uma definição/declaração de função. */
         if (t->kind.id == Function)
         {
-            /* Descobrir se é "int" ou "void" (pai == TypeK) */
-            char *name = t->attr.name;
-            char *dataType = "int"; 
             if (t->parent && t->parent->nodekind == TypeK)
             {
-                if (t->parent->kind.type == Void) 
+                /* Recupera nome da função */
+                char *name = t->attr.name;
+
+                /* Verifica se o pai (TypeK) é int ou void */
+                char *dataType = "int";
+                if (t->parent->kind.type == Void)
                     dataType = "void";
                 else
                     dataType = "int";
+
+                /* Escopo global = "" */
+                st_insert(name, t->lineno, "", "fun", dataType);
+
+                if (!strcmp(name, "main"))
+                    foundMain = 1;
+
+                /* Muda escopo p/ o nome da função */
+                strcpy(currentScopeName, name);
             }
-
-            /* Funções vão no escopo global => scope="" */
-            st_insert(name, t->lineno, "", "fun", dataType);
-
-            /* Se for "main", marca que encontramos */
-            if (!strcmp(name, "main")) 
-                foundMain = 1;
-
-            /* Muda escopo para o nome da função (para inserir params/vars) */
-            strcpy(currentScopeName, name);
         }
-        /* Declaração de variável ou array */
+        /* 2) Declaração de variável ou array */
         else if (t->kind.id == Variable || t->kind.id == Array)
         {
             /* Só é DECLARAÇÃO se o pai for TypeK */
@@ -89,116 +93,116 @@ static void insertDecl_pre(TreeNode *t)
                 char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
                 char *idType   = (t->kind.id == Variable) ? "var" : "array";
 
+                /* Insere no escopo atual (função ou global) */
                 st_insert(name, t->lineno, currentScopeName, idType, dataType);
             }
-            /* Se pai não é TypeK, então isso é USO, mas a gente ignora na 1a passada */
         }
-        break;
-    default:
-        break;
     }
 }
 
-/* Ao sair de um nó: se for Function, restauramos escopo="" */
+/* Ao sair de um nó: se for Function (e de fato definido), restauramos escopo="" */
 static void insertDecl_post(TreeNode *t)
 {
+    if (t == NULL) return;
+
     if (t->nodekind == IdK && t->kind.id == Function)
     {
-        /* Terminamos a declaração (e corpo) da função. Volta escopo p/ global */
-        strcpy(currentScopeName, "");
+        /* terminou corpo da função => volta p/ global,
+         * mas só se este IdK realmente era declaração (pai TypeK) */
+        if (t->parent && t->parent->nodekind == TypeK)
+        {
+            strcpy(currentScopeName, "");
+        }
     }
 }
 
 /*--------------------------------------------------*/
-/* Passada 2: Insere USOS e checa se foram declarados */
+/* Passada 2: Insere USOS e checa se declarados     */
 /*--------------------------------------------------*/
-
-/* Pré-ordem da segunda passada: analisa usos */
 static void insertUse_pre(TreeNode *t)
 {
-    /* Só queremos nós do tipo IdK */
+    if (t == NULL) return;
     if (t->nodekind != IdK) return;
 
     /* 1) Se for Function e o pai for TypeK => DEFINIÇÃO (de novo) */
     if (t->kind.id == Function && t->parent && t->parent->nodekind == TypeK)
     {
-        /* É a definição de função; então entramos no escopo dela */
+        /* É a definição de função (já inserida). Entramos no escopo dela */
         strcpy(currentScopeName, t->attr.name);
         return;
     }
 
-    /* 2) Se for FunctionCall => uso de função no escopo global */
+    /* 2) Se for FunctionCall => uso de função */
     if (t->kind.id == FunctionCall)
     {
         char *name = t->attr.name;
+        /* Funções sempre estão no escopo global */
         int found = st_lookup(name, "");
         if (!found)
         {
             semanticError(t->lineno, "'%s' was not declared in this scope", name);
+            /* Não faz st_insert para não "inventar" a função */
         }
         else
         {
-            /* Registra uso da função */
+            /* Registra o uso (não sobrescreve tipo) => (NULL, NULL) */
             st_insert(name, t->lineno, "", NULL, NULL);
         }
         return;
     }
 
-    /* 3) Se for Variable ou Array => pode ser uso (se pai não for TypeK) */
+    /* 3) Se for Variable ou Array => uso de variável (se pai não é TypeK) */
     if (t->kind.id == Variable || t->kind.id == Array)
     {
-        /* Checa se o pai é TypeK => então é DECLARAÇÃO (já tratada na 1a passada). */
-        if (t->parent && t->parent->nodekind == TypeK)
+        /* Se o pai NÃO for TypeK => USO */
+        if (!(t->parent && t->parent->nodekind == TypeK))
         {
-            /* Então é declaração, não uso -> não faz nada aqui */
-            return;
-        }
-        else
-        {
-            /* Uso de variável */
             char *name = t->attr.name;
             int found = st_lookup(name, currentScopeName);
             if (!found)
             {
+                /* não encontrado nem no escopo atual nem global => erro */
                 semanticError(t->lineno, "'%s' was not declared in this scope", name);
             }
             else
             {
-                /* Insere uso => idType = NULL */
+                /* registra linha de uso => (NULL, NULL) */
                 st_insert(name, t->lineno, currentScopeName, NULL, NULL);
             }
         }
         return;
     }
 
-    /* 4) Se for Function mas pai NÃO é TypeK => deve ser chamada de função? 
-     *    Mas idealmente, você teria kind.id == FunctionCall para isso.
-     *    Então, se chegou aqui, pode ser algum caso de AST que não diferencia.
-     *    Se seu parser não separa Function/FunctionCall, ative esse "plano B": */
-
+    /* 4) Caso seu parser não separe FunctionCall de Function,
+     *    mas aqui percebamos que é chamada => heurística:
+     *    Se nodekind=IdK e kind.id=Function, mas pai NÃO é TypeK,
+     *    provavelmente é chamada => uso de função. */
     if (t->kind.id == Function)
     {
-        /* Se não for pai TypeK, assumimos que é chamada */
-        char *name = t->attr.name;
-        int found = st_lookup(name, "");
-        if (!found)
+        /* Se pai não é TypeK => deve ser chamada => uso */
+        if (!(t->parent && t->parent->nodekind == TypeK))
         {
-            semanticError(t->lineno, "'%s' was not declared in this scope", name);
+            char *name = t->attr.name;
+            int found = st_lookup(name, "");
+            if (!found)
+            {
+                semanticError(t->lineno, "'%s' was not declared in this scope", name);
+            }
+            else
+            {
+                st_insert(name, t->lineno, "", NULL, NULL);
+            }
+            /* não altera currentScopeName */
         }
-        else
-        {
-            st_insert(name, t->lineno, "", NULL, NULL);
-        }
-        /* Não altera currentScopeName aqui, pois é uso, não definição */
-        return;
     }
 }
 
-/* Pós-ordem da segunda passada */
+/* Ao sair de um nó na segunda passada */
 static void insertUse_post(TreeNode *t)
 {
-    /* Se for Definition de função novamente, saímos do escopo */
-    if (t->nodekind == IdK && t->kind.id == Function
+    if (t == NULL) return;
+    /* Se for a definição de função (pai TypeK), saímos do escopo */
+    if (t->nodekind == IdK && t->kind.id == Function 
         && t->parent && t->parent->nodekind == TypeK)
     {
         strcpy(currentScopeName, "");
@@ -206,7 +210,7 @@ static void insertUse_post(TreeNode *t)
 }
 
 /*--------------------------------------------------*/
-/* Percorre a AST chamando preProc e postProc       */
+/* Percurso genérico na AST (preProc e postProc)    */
 /*--------------------------------------------------*/
 static void traverse(TreeNode *t,
                      void (*preProc)(TreeNode *),
@@ -215,11 +219,10 @@ static void traverse(TreeNode *t,
     if (t == NULL) return;
 
     preProc(t);
-    for (int i=0; i<MAXCHILDREN; i++)
+    for (int i = 0; i < MAXCHILDREN; i++)
         traverse(t->child[i], preProc, postProc);
     postProc(t);
 
-    /* Sibling */
     traverse(t->sibling, preProc, postProc);
 }
 
@@ -234,24 +237,24 @@ static void nullProc(TreeNode *t)
 /*--------------------------------------------------*/
 void buildSymtab(TreeNode *syntaxTree)
 {
-    /* 0) Zera TS e insere funções nativas */
+    /* 0) Inicializa TS e insere funções nativas */
     st_init();
     insertBuiltIns();
 
-    /* 1) Primeira passada: DECLARAÇÕES */
+    /* 1) Primeira passada: só DECLARAÇÕES */
     traverse(syntaxTree, insertDecl_pre, insertDecl_post);
 
-    /* 2) Segunda passada: USOS + checa se foram declarados */
+    /* 2) Segunda passada: USOS (e valida declarações) */
     traverse(syntaxTree, insertUse_pre, insertUse_post);
 
-    /* Se não achamos main, erro */
+    /* Se não achamos main, gera erro */
     if (!foundMain)
     {
         pce("Semantic error: undefined reference to 'main'\n");
         semanticErrors++;
     }
 
-    /* Ao final, imprime a tabela de símbolos */
+    /* Imprime a TS no final */
     pc("\nSymbol table:\n\n");
     printSymTab();
 }

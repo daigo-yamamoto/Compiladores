@@ -41,7 +41,9 @@ static BucketList hashTable[SIZE];
 static BucketList symbolArray[1000];
 static int symbolCount = 0;
 
-/* Função hash: mapeia string -> índice [0..SIZE-1] */
+/*---------------------------------------------*/
+/* Função hash: mapeia string -> índice        */
+/*---------------------------------------------*/
 static int hash(const char *key)
 {
     unsigned int temp = 0;
@@ -54,7 +56,9 @@ static int hash(const char *key)
     return temp;
 }
 
-/* Compara se BucketList b corresponde a (name, scope) */
+/*---------------------------------------------*/
+/* Compara se b corresponde a (name, scope)    */
+/*---------------------------------------------*/
 static int sameNameScope(BucketList b, const char *name, const char *scope)
 {
     if (!b) return 0;
@@ -63,7 +67,9 @@ static int sameNameScope(BucketList b, const char *name, const char *scope)
     return 0;
 }
 
-/* Inicializa a Tabela de Símbolos */
+/*---------------------------------------------*/
+/* Inicializa a Tabela de Símbolos             */
+/*---------------------------------------------*/
 void st_init(void)
 {
     for (int i = 0; i < SIZE; i++)
@@ -71,7 +77,10 @@ void st_init(void)
     symbolCount = 0;
 }
 
-/* Verifica se 'head' já contém 'lineno' (para não duplicar linha) */
+/*-------------------------------------------------------*/
+/* Verifica se 'head' já contém 'lineno' (para não       */
+/* duplicar linha na lista de linhas)                    */
+/*-------------------------------------------------------*/
 static int alreadyHasLine(LineList head, int lineno)
 {
     for (LineList p = head; p != NULL; p = p->next)
@@ -82,7 +91,9 @@ static int alreadyHasLine(LineList head, int lineno)
     return 0;
 }
 
-/* Cria um novo Bucket para (name, scope, idType, dataType, lineno) */
+/*-------------------------------------------------------*/
+/* Cria e retorna um novo BucketList (símbolo)           */
+/*-------------------------------------------------------*/
 static BucketList newBucket(const char *name, const char *scope,
                             const char *idType, const char *dataType,
                             int lineno)
@@ -94,7 +105,7 @@ static BucketList newBucket(const char *name, const char *scope,
     newB->dataType = (dataType) ? copyString(dataType) : NULL;
     newB->next     = NULL;
 
-    /* Cria a lista de linhas apenas se lineno != 0 */
+    /* Cria a lista de linhas apenas se lineno != 0 (não é built-in na declaração) */
     if (lineno != 0)
     {
         LineList ll  = (LineList)malloc(sizeof(*ll));
@@ -103,16 +114,20 @@ static BucketList newBucket(const char *name, const char *scope,
         newB->lines  = ll;
     }
     else
-        newB->lines = NULL;  /* p/ built-ins */
+    {
+        newB->lines = NULL;
+    }
 
     return newB;
 }
 
-/* 
- * Insere (ou atualiza) um símbolo na TS. 
- *  - Se 'idType' != NULL => DECLARAÇÃO => sobrescreve idType/dataType
- *  - Se 'idType' == NULL => USO => só adiciona a linha (caso não exista)
- */
+/*-------------------------------------------------------*/
+/* st_insert: Insere (ou atualiza) um símbolo na TS      */
+/*  - Se 'idType' != NULL => significa DECLARAÇÃO        */
+/*    => sobrescreve idType/dataType (atualiza)          */
+/*  - Se 'idType' == NULL => significa USO               */
+/*    => adiciona a linha, caso não exista               */
+/*-------------------------------------------------------*/
 void st_insert(const char *name, int lineno,
                const char *scope,
                const char *idType,
@@ -122,30 +137,35 @@ void st_insert(const char *name, int lineno,
     BucketList l = hashTable[h];
     BucketList prev = NULL;
 
-    /* Tenta achar (name, scope) na lista */
+    /* Tenta achar (name, scope) na lista ligada */
     while (l != NULL && !(sameNameScope(l, name, scope)))
     {
         prev = l;
         l = l->next;
     }
 
+    /*------------------------------------------------*/
+    /* Se não achou, cria um novo bucket e adiciona    */
+    /*------------------------------------------------*/
     if (l == NULL)
     {
-        /* Não existe => cria bucket */
         BucketList newB = newBucket(name, scope, idType, dataType, lineno);
 
-        /* Insere no encadeamento da hash */
+        /* Encadeia na lista do hash */
         if (prev == NULL)
             hashTable[h] = newB;
         else
             prev->next = newB;
 
-        /* Registra este novo símbolo no array (ordem de criação) */
+        /* Armazena no array para imprimir na ordem de inserção */
         symbolArray[symbolCount++] = newB;
     }
+    /*------------------------------------------------*/
+    /* Se já existe, possivelmente atualiza ou adiciona uso */
+    /*------------------------------------------------*/
     else
     {
-        /* Já existe => se idType != NULL, sobrescreve (DECLARAÇÃO) */
+        /* Se for DECLARAÇÃO (idType != NULL), atualiza idType/dataType */
         if (idType != NULL)
         {
             free(l->idType);
@@ -154,7 +174,7 @@ void st_insert(const char *name, int lineno,
             l->dataType = copyString(dataType);
         }
 
-        /* Se lineno != 0 => uso => adiciona a linha se não duplicada */
+        /* Se for USO (lineno != 0), adiciona linha se ainda não existir */
         if (lineno != 0 && !alreadyHasLine(l->lines, lineno))
         {
             if (l->lines == NULL)
@@ -178,23 +198,24 @@ void st_insert(const char *name, int lineno,
     }
 }
 
-/* 
- * Retorna 1 se encontrar 'name' no 'scope' ou "" (global),
- * senão retorna 0
- */
+/*------------------------------------------------------------*/
+/* st_lookup: Retorna 1 se encontrar 'name' no 'scope'        */
+/* ou no escopo global (""), senão retorna 0                  */
+/*------------------------------------------------------------*/
 int st_lookup(const char *name, const char *scope)
 {
     int h = hash(name);
     BucketList l = hashTable[h];
 
-    /* 1) Tenta (name, scope) */
+    /* 1) Tenta achar (name, scope) exato */
     while (l != NULL)
     {
         if (sameNameScope(l, name, scope))
             return 1;
         l = l->next;
     }
-    /* 2) Se não achou e scope != "", procura no escopo "" */
+
+    /* 2) Se não achou e scope != "", procura no escopo global ("") */
     if (strcmp(scope, "") != 0)
     {
         h = hash(name);
@@ -209,16 +230,15 @@ int st_lookup(const char *name, const char *scope)
     return 0;
 }
 
-/* 
- * Imprime a Tabela de Símbolos NA ORDEM EM QUE OS SÍMBOLOS FORAM CRIADOS.
- * Usa 'symbolArray[0..symbolCount-1]'.
- */
+/*------------------------------------------------------------*/
+/* printSymTab: Imprime a Tabela de Símbolos na ordem de      */
+/* inserção (symbolArray[0..symbolCount-1]).                  */
+/*------------------------------------------------------------*/
 void printSymTab(void)
 {
     pc("Variable Name  Scope     ID Type  Data Type  Line Numbers\n");
     pc("-------------  --------  -------  ---------  -------------------------\n");
 
-    /* Percorre o array na ordem em que os símbolos foram criados */
     for (int i = 0; i < symbolCount; i++)
     {
         BucketList b = symbolArray[i];
@@ -232,20 +252,13 @@ void printSymTab(void)
         pc("%-8s ", idt);
         pc("%-10s ", dt);
 
-        /* Se for input ou output, não imprime linhas */
-        if (!strcmp(name,"input") || !strcmp(name,"output"))
+        /* Agora SEM ignorar linhas para input/output:
+           sempre imprimimos se houver linhas armazenadas. */
+        LineList t = b->lines;
+        while (t != NULL)
         {
-            // nada
-        }
-        else
-        {
-            /* imprime as linhas */
-            LineList t = b->lines;
-            while (t != NULL)
-            {
-                pc("%2d ", t->lineno);
-                t = t->next;
-            }
+            pc("%2d ", t->lineno);
+            t = t->next;
         }
 
         pc("\n");
