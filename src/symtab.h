@@ -7,10 +7,10 @@
 void st_init(void);
 
 /* Insere (ou atualiza) símbolo */
-void st_insert(const char *name, int lineno,
-               const char *scope,
-               const char *idType,
-               const char *dataType);
+int st_insert(const char *name, int lineno,
+    const char *scope,
+    const char *idType,
+    const char *dataType);
 
 /* st_lookup: retorna 1 se achar (name, scope) ou global, senão 0 */
 int st_lookup(const char *name, const char *scope);

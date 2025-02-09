@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h> /* adicionado */
 
 #include "symtab.h"
 #include "util.h"
@@ -26,11 +27,11 @@ typedef struct LineListRec
 /* A "BucketList" representa cada símbolo guardado na TS */
 typedef struct BucketListRec
 {
-    char *name;            
+    char *name;
     char *scope;           /* ex: "main", "" (global) */
     char *idType;          /* "fun", "var", "array" */
     char *dataType;        /* "int", "void", etc. */
-    LineList lines;        
+    LineList lines;
     struct BucketListRec *next;
 } *BucketList;
 
@@ -84,7 +85,7 @@ static int alreadyHasLine(LineList head, int lineno)
 {
     for (LineList p = head; p != NULL; p = p->next)
     {
-        if (p->lineno == lineno) 
+        if (p->lineno == lineno)
             return 1;
     }
     return 0;
@@ -123,8 +124,8 @@ static BucketList newBucket(const char *name, const char *scope,
 /* st_insert: Insere (ou atualiza) um símbolo na TS      */
 /*  - Se 'idType' != NULL => é DECLARAÇÃO => atualiza    */
 /*  - Se 'idType' == NULL => é USO => só adiciona linha  */
-/*-------------------------------------------------------*/
-void st_insert(const char *name, int lineno,
+/* Retorna 0 se inseriu novo ou atualizou uso, 1 se detectou redeclaração */
+int st_insert(const char *name, int lineno,
                const char *scope,
                const char *idType,
                const char *dataType)
@@ -152,39 +153,40 @@ void st_insert(const char *name, int lineno,
 
         /* Salva no array para impressão na ordem de inserção */
         symbolArray[symbolCount++] = newB;
+        return 0; /* Inseriu novo */
     }
     else
     {
-        /* Já existe no escopo: possivelmente atualiza ou adiciona linha de uso */
+        /* Já existe no escopo: possivelmente atualiza ou reporta redeclaracao */
         if (idType != NULL)
         {
-            /* sobrescreve o que tinha */
-            free(l->idType);
-            free(l->dataType);
-            l->idType   = copyString(idType);
-            l->dataType = copyString(dataType);
+            /* Achou declaração já existente no escopo atual => redeclaracao */
+            return 1; /* Reporta redeclaracao */
         }
-
-        /* Adiciona linha de uso, se ainda não existir */
-        if (lineno != 0 && !alreadyHasLine(l->lines, lineno))
+        else
         {
-            if (l->lines == NULL)
+            /* É uso (idType == NULL) => só adiciona linha de uso, se ainda não existir */
+            if (lineno != 0 && !alreadyHasLine(l->lines, lineno))
             {
-                LineList ll  = (LineList)malloc(sizeof(*ll));
-                ll->lineno   = lineno;
-                ll->next     = NULL;
-                l->lines     = ll;
+                if (l->lines == NULL)
+                {
+                    LineList ll  = (LineList)malloc(sizeof(*ll));
+                    ll->lineno   = lineno;
+                    ll->next     = NULL;
+                    l->lines     = ll;
+                }
+                else
+                {
+                    LineList t = l->lines;
+                    while (t->next != NULL)
+                        t = t->next;
+                    LineList newLine = (LineList)malloc(sizeof(*newLine));
+                    newLine->lineno  = lineno;
+                    newLine->next    = NULL;
+                    t->next          = newLine;
+                }
             }
-            else
-            {
-                LineList t = l->lines;
-                while (t->next != NULL)
-                    t = t->next;
-                LineList newLine = (LineList)malloc(sizeof(*newLine));
-                newLine->lineno  = lineno;
-                newLine->next    = NULL;
-                t->next          = newLine;
-            }
+            return 0; /* Atualizou uso */
         }
     }
 }
@@ -214,7 +216,7 @@ int st_lookup(const char *name, const char *scope)
         l = hashTable[h];
         while (l != NULL)
         {
-            if (sameNameScope(l, name, "")) 
+            if (sameNameScope(l, name, ""))
                 return 1;
             l = l->next;
         }

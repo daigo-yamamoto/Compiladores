@@ -7,6 +7,7 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+ #include <stddef.h> /* adicionado */
  
  #include "analyze.h"
  #include "globals.h"
@@ -93,7 +94,9 @@
                  }
  
                  /* Insere no escopo atual (função ou global) */
-                 st_insert(name, t->lineno, currentScopeName, idType, dataType);
+                 if (st_insert(name, t->lineno, currentScopeName, idType, dataType)) {
+                     semanticError(t->lineno, "'%s' was already declared as a variable", name);
+                 }
              }
          }
      }
