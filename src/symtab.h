@@ -6,6 +6,8 @@
 /* Inicializa a tabela de símbolos */
 void st_init(void);
 
+char* st_symbolType(const char *name, const char *scope);
+
 /* Insere (ou atualiza) símbolo */
 int st_insert(const char *name, int lineno,
     const char *scope,

@@ -244,6 +244,36 @@ int st_lookup_local(const char *name, const char *scope)
 }
 
 /*------------------------------------------------------------*/
+/* st_symbolType: Returns the idType ("fun", "var", "array")  */
+/* of a symbol, or NULL if not found.                          */
+/*------------------------------------------------------------*/
+char* st_symbolType(const char *name, const char *scope) {
+    int h = hash(name);
+    BucketList l = hashTable[h];
+
+    /* 1) Tenta achar (name, scope) exato */
+    while (l != NULL) {
+        if (sameNameScope(l, name, scope)) {
+            return l->idType;
+        }
+        l = l->next;
+    }
+
+    /* 2) If not found in scope, try global scope ("") if scope is not already global */
+    if (strcmp(scope, "") != 0) {
+        h = hash(name);
+        l = hashTable[h];
+        while (l != NULL) {
+            if (sameNameScope(l, name, "")) {
+                return l->idType;
+            }
+            l = l->next;
+        }
+    }
+    return NULL; // Not found
+}
+
+/*------------------------------------------------------------*/
 /* printSymTab: Imprime a Tabela de Símbolos na ordem         */
 /* de inserção (symbolArray[0..symbolCount-1]).               */
 /*------------------------------------------------------------*/

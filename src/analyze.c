@@ -51,56 +51,67 @@
  /*--------------------------------------------------*/
  /* Passada 1: Insere apenas as DECLARAÇÕES          */
  /*--------------------------------------------------*/
- static void insertDecl_pre(TreeNode *t)
- {
-     if (t == NULL) return;
- 
-     if (t->nodekind == IdK)
-     {
-         /* 1) Declaração de função (kind.id == Function).
-          *    Só ocorre se o pai for TypeK => é realmente declaração/definição. */
-         if (t->kind.id == Function)
-         {
-             if (t->parent && t->parent->nodekind == TypeK)
-             {
-                 char *name = t->attr.name;
- 
-                 /* Se o TypeK do pai é int ou void */
-                 char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
- 
-                 /* Escopo global = "" */
-                 st_insert(name, t->lineno, "", "fun", dataType);
- 
-                 if (!strcmp(name, "main"))
-                     foundMain = 1;
- 
-                 /* Muda escopo para o nome da função */
-                 strcpy(currentScopeName, name);
-             }
-         }
-         /* 2) Declaração de variável ou array */
-         else if (t->kind.id == Variable || t->kind.id == Array)
-         {
-             /* Só é declaração se o pai for TypeK */
-             if (t->parent && t->parent->nodekind == TypeK)
-             {
-                 char *name = t->attr.name;
-                 char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
-                 char *idType   = (t->kind.id == Variable) ? "var" : "array";
- 
-                 if (strcmp(dataType, "void") == 0) {
-                     semanticError(t->lineno, "variable declared void", name);
-                     return; /* Não insere variável void na tabela de símbolos */
-                 }
- 
-                 /* Insere no escopo atual (função ou global) */
-                 if (st_insert(name, t->lineno, currentScopeName, idType, dataType)) {
-                     semanticError(t->lineno, "'%s' was already declared as a variable", name);
-                 }
-             }
-         }
-     }
- }
+static void insertDecl_pre(TreeNode *t)
+{
+    if (t == NULL) return;
+
+    if (t->nodekind == IdK)
+    {
+        /* 1) Declaração de função (kind.id == Function).
+         *    Só ocorre se o pai for TypeK => é realmente declaração/definição. */
+        if (t->kind.id == Function)
+        {
+            if (t->parent && t->parent->nodekind == TypeK)
+            {
+                char *name = t->attr.name;
+
+                /* Se o TypeK do pai é int ou void */
+                char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
+
+                /* Escopo global = "" */
+                st_insert(name, t->lineno, "", "fun", dataType);
+
+                if (!strcmp(name, "main"))
+                    foundMain = 1;
+
+                /* Muda escopo para o nome da função */
+                strcpy(currentScopeName, name);
+            }
+        }
+        /* 2) Declaração de variável ou array */
+        else if (t->kind.id == Variable || t->kind.id == Array)
+        {
+            /* Só é declaração se o pai for TypeK */
+            if (t->parent && t->parent->nodekind == TypeK)
+            {
+                char *name = t->attr.name;
+                char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
+                char *idType   = (t->kind.id == Variable) ? "var" : "array";
+
+                if (strcmp(dataType, "void") == 0) {
+                    semanticError(t->lineno, "variable declared void", name);
+                    return; /* Não insere variável void na tabela de símbolos */
+                }
+
+                /* **NEW CHECK:** Check if function with same name exists in global scope */
+                if (st_lookup_local(name, "")) { // Check global scope ("")
+                    char symbolType[4];
+                    strncpy(symbolType, st_symbolType(name, ""), sizeof(symbolType)-1);
+                    symbolType[sizeof(symbolType)-1] = 0; // Ensure null termination
+                    if (strcmp(symbolType, "fun") == 0) {
+                        semanticError(t->lineno, "'%s' was already declared as a function", name);
+                        return; // Don't insert variable if function name conflict
+                    }
+                }
+
+                /* Insere no escopo atual (função ou global) */
+                if (st_insert(name, t->lineno, currentScopeName, idType, dataType)) {
+                    semanticError(t->lineno, "'%s' was already declared as a variable", name);
+                }
+            }
+        }
+    }
+}
  
  /* Ao sair de um nó: se for Function (e de fato definido), restauramos escopo="" */
  static void insertDecl_post(TreeNode *t)
