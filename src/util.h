@@ -1,43 +1,19 @@
-/****************************************************/
-/* File: util.h                                     */
-/* Utility functions for the TINY compiler          */
-/* Compiler Construction: Principles and Practice   */
-/* Kenneth C. Louden                                */
-/****************************************************/
-
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
-/* Procedure printToken prints a token 
- * and its lexeme to the listing file
- */
-void printToken( TokenType, const char* );
+/* Primeiro: globals.h, que declara TreeNode, TokenType, etc. */
+#include "globals.h"
 
-/* Function newStmtNode creates a new statement
- * node for syntax tree construction
- */
+/* Agora as funções que usam esses tipos */
+void printToken(TokenType token, const char* tokenString);
+
 TreeNode * newStmtNode(StmtKind);
-
-/* Function newExpNode creates a new expression 
- * node for syntax tree construction
- */
 TreeNode * newExpNode(ExpKind);
+char * copyString(char *);
 
-/* Function copyString allocates and makes a new
- * copy of an existing string
- */
-char * copyString( char * );
-
-/* procedure printTree prints a syntax tree to the 
- * listing file using indentation to indicate subtrees
- */
-void printTree( TreeNode * );
-
-/* Procedure printLine prints a full line
- * of the source code, with its number 
- */
+/* etc... */
+void printTree(TreeNode * );
 void printLine(FILE* redundant_source);
-
 TreeNode * newTypeNode(TypeKind type);
 TreeNode * newIdNode(IdKind kind);
 
