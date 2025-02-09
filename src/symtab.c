@@ -78,8 +78,8 @@ void st_init(void)
 }
 
 /*-------------------------------------------------------*/
-/* Verifica se 'head' já contém 'lineno' (para não       */
-/* duplicar linha na lista de linhas)                    */
+/* Verifica se 'head' já contém 'lineno' para não        */
+/* duplicar linha na lista de linhas                     */
 /*-------------------------------------------------------*/
 static int alreadyHasLine(LineList head, int lineno)
 {
@@ -124,11 +124,12 @@ static BucketList newBucket(const char *name, const char *scope,
 /* st_insert: Insere (ou atualiza) um símbolo na TS      */
 /*  - Se 'idType' != NULL => é DECLARAÇÃO => atualiza    */
 /*  - Se 'idType' == NULL => é USO => só adiciona linha  */
-/* Retorna 0 se inseriu novo ou atualizou uso, 1 se detectou redeclaração */
+/* Retorna 0 se inseriu novo/atualizou uso, 1 se redecl  */
+/*-------------------------------------------------------*/
 int st_insert(const char *name, int lineno,
-               const char *scope,
-               const char *idType,
-               const char *dataType)
+              const char *scope,
+              const char *idType,
+              const char *dataType)
 {
     int h = hash(name);
     BucketList l = hashTable[h];
@@ -157,15 +158,15 @@ int st_insert(const char *name, int lineno,
     }
     else
     {
-        /* Já existe no escopo: possivelmente atualiza ou reporta redeclaracao */
+        /* Já existe no escopo: possivelmente atualiza ou reporta redeclaração */
         if (idType != NULL)
         {
-            /* Achou declaração já existente no escopo atual => redeclaracao */
-            return 1; /* Reporta redeclaracao */
+            /* Achou declaração já existente no escopo atual => redeclaração */
+            return 1; 
         }
         else
         {
-            /* É uso (idType == NULL) => só adiciona linha de uso, se ainda não existir */
+            /* É uso => só adiciona linha de uso, se ainda não existir */
             if (lineno != 0 && !alreadyHasLine(l->lines, lineno))
             {
                 if (l->lines == NULL)
@@ -192,9 +193,8 @@ int st_insert(const char *name, int lineno,
 }
 
 /*------------------------------------------------------------*/
-/* st_lookup: Retorna 1 se encontrar 'name' no 'scope'        */
-/* OU no escopo global (""), senão retorna 0.                 */
-/* (Uso original. Mantemos para não quebrar outras partes.)   */
+/* st_lookup: Retorna 1 se achar 'name' no 'scope' ou global, */
+/* senão 0                                                    */
 /*------------------------------------------------------------*/
 int st_lookup(const char *name, const char *scope)
 {
@@ -226,8 +226,7 @@ int st_lookup(const char *name, const char *scope)
 
 /*------------------------------------------------------------*/
 /* st_lookup_local: Retorna 1 se achar (name, scope) exato,   */
-/* senão retorna 0. (Não tenta o escopo global!)              */
-/* Útil para sabermos em qual escopo realmente está o símbolo.*/
+/* senão 0 (não olha global).                                 */
 /*------------------------------------------------------------*/
 int st_lookup_local(const char *name, const char *scope)
 {
@@ -244,33 +243,67 @@ int st_lookup_local(const char *name, const char *scope)
 }
 
 /*------------------------------------------------------------*/
-/* st_symbolType: Returns the idType ("fun", "var", "array")  */
-/* of a symbol, or NULL if not found.                          */
+/* st_symbolType: Retorna o idType ("fun","var","array")      */
+/* ou NULL se não achar                                       */
 /*------------------------------------------------------------*/
-char* st_symbolType(const char *name, const char *scope) {
+char* st_symbolType(const char *name, const char *scope)
+{
+    int h = hash(name);
+    BucketList l = hashTable[h];
+
+    /* 1) Tenta achar (name,scope) exato */
+    while (l != NULL)
+    {
+        if (sameNameScope(l, name, scope))
+            return l->idType;
+        l = l->next;
+    }
+
+    /* 2) Se não achou, tenta no escopo global */
+    if (strcmp(scope, "") != 0)
+    {
+        h = hash(name);
+        l = hashTable[h];
+        while (l != NULL)
+        {
+            if (sameNameScope(l, name, ""))
+                return l->idType;
+            l = l->next;
+        }
+    }
+    return NULL;
+}
+
+/*------------------------------------------------------------*/
+/* st_dataType: Retorna o dataType ("int","void") ou NULL     */
+/* se não achar                                               */
+/*------------------------------------------------------------*/
+char* st_dataType(const char *name, const char *scope)
+{
     int h = hash(name);
     BucketList l = hashTable[h];
 
     /* 1) Tenta achar (name, scope) exato */
-    while (l != NULL) {
-        if (sameNameScope(l, name, scope)) {
-            return l->idType;
-        }
+    while (l != NULL)
+    {
+        if (sameNameScope(l, name, scope))
+            return l->dataType;
         l = l->next;
     }
 
-    /* 2) If not found in scope, try global scope ("") if scope is not already global */
-    if (strcmp(scope, "") != 0) {
+    /* 2) Se não achou, tenta escopo global */
+    if (strcmp(scope, "") != 0)
+    {
         h = hash(name);
         l = hashTable[h];
-        while (l != NULL) {
-            if (sameNameScope(l, name, "")) {
-                return l->idType;
-            }
+        while (l != NULL)
+        {
+            if (sameNameScope(l, name, ""))
+                return l->dataType;
             l = l->next;
         }
     }
-    return NULL; // Not found
+    return NULL;
 }
 
 /*------------------------------------------------------------*/

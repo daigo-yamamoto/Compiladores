@@ -21,7 +21,7 @@
  /* Indica se encontramos "main" em alguma definição de função */
  static int foundMain = 0;
  
- /* Escopo atual (por ex: "main", "f", "g", etc.) */
+ /* Escopo atual (ex: "main", "", "f", etc.) */
  static char currentScopeName[50] = "";
  
  /*--------------------------------------------------*/
@@ -51,67 +51,67 @@
  /*--------------------------------------------------*/
  /* Passada 1: Insere apenas as DECLARAÇÕES          */
  /*--------------------------------------------------*/
-static void insertDecl_pre(TreeNode *t)
-{
-    if (t == NULL) return;
-
-    if (t->nodekind == IdK)
-    {
-        /* 1) Declaração de função (kind.id == Function).
-         *    Só ocorre se o pai for TypeK => é realmente declaração/definição. */
-        if (t->kind.id == Function)
-        {
-            if (t->parent && t->parent->nodekind == TypeK)
-            {
-                char *name = t->attr.name;
-
-                /* Se o TypeK do pai é int ou void */
-                char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
-
-                /* Escopo global = "" */
-                st_insert(name, t->lineno, "", "fun", dataType);
-
-                if (!strcmp(name, "main"))
-                    foundMain = 1;
-
-                /* Muda escopo para o nome da função */
-                strcpy(currentScopeName, name);
-            }
-        }
-        /* 2) Declaração de variável ou array */
-        else if (t->kind.id == Variable || t->kind.id == Array)
-        {
-            /* Só é declaração se o pai for TypeK */
-            if (t->parent && t->parent->nodekind == TypeK)
-            {
-                char *name = t->attr.name;
-                char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
-                char *idType   = (t->kind.id == Variable) ? "var" : "array";
-
-                if (strcmp(dataType, "void") == 0) {
-                    semanticError(t->lineno, "variable declared void", name);
-                    return; /* Não insere variável void na tabela de símbolos */
-                }
-
-                /* **NEW CHECK:** Check if function with same name exists in global scope */
-                if (st_lookup_local(name, "")) { // Check global scope ("")
-                    char symbolType[4];
-                    strncpy(symbolType, st_symbolType(name, ""), sizeof(symbolType)-1);
-                    symbolType[sizeof(symbolType)-1] = 0; // Ensure null termination
-                    if (strcmp(symbolType, "fun") == 0) {
-                        semanticError(t->lineno, "'%s' was already declared as a function", name);
-                        return; // Don't insert variable if function name conflict
-                    }
-                }
-
-                /* Insere no escopo atual (função ou global) */
-                if (st_insert(name, t->lineno, currentScopeName, idType, dataType)) {
-                    semanticError(t->lineno, "'%s' was already declared as a variable", name);
-                }
-            }
-        }
-    }
-}
+ static void insertDecl_pre(TreeNode *t)
+ {
+     if (t == NULL) return;
+ 
+     if (t->nodekind == IdK)
+     {
+         /* Exemplo: se for Function => pai é TypeK => DECLARAÇÃO de função */
+         if (t->kind.id == Function)
+         {
+             if (t->parent && t->parent->nodekind == TypeK)
+             {
+                 char *name = t->attr.name;
+ 
+                 /* Se o TypeK do pai é int ou void */
+                 char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
+ 
+                 /* Escopo global = "" */
+                 st_insert(name, t->lineno, "", "fun", dataType);
+ 
+                 if (!strcmp(name, "main"))
+                     foundMain = 1;
+ 
+                 /* Muda escopo para o nome da função */
+                 strcpy(currentScopeName, name);
+             }
+         }
+         /* Se for Variable ou Array => DECLARAÇÃO de variável/array */
+         else if (t->kind.id == Variable || t->kind.id == Array)
+         {
+             /* Só é declaração se o pai for TypeK */
+             if (t->parent && t->parent->nodekind == TypeK)
+             {
+                 char *name = t->attr.name;
+                 char *dataType = (t->parent->kind.type == Void) ? "void" : "int";
+                 char *idType   = (t->kind.id == Variable) ? "var" : "array";
+ 
+                 if (strcmp(dataType, "void") == 0) {
+                     semanticError(t->lineno, "variable declared void", name);
+                     return; 
+                 }
+ 
+                 /* Verifica se já existe função global com esse nome */
+                 if (st_lookup_local(name, "")) {
+                     char symbolType[10];
+                     strncpy(symbolType, st_symbolType(name, ""), sizeof(symbolType)-1);
+                     symbolType[sizeof(symbolType)-1] = 0; 
+                     if (symbolType[0] != '\0' && strcmp(symbolType, "fun") == 0) {
+                         semanticError(t->lineno, "'%s' was already declared as a function", name);
+                         return; // Evita inserir
+                     }
+                 }
+ 
+                 /* Insere no escopo atual (ex: nome da função) */
+                 if (st_insert(name, t->lineno, currentScopeName, idType, dataType)) {
+                     /* Se retornar 1 => redeclaração no mesmo escopo */
+                     semanticError(t->lineno, "'%s' was already declared as a variable", name);
+                 }
+             }
+         }
+     }
+ }
  
  /* Ao sair de um nó: se for Function (e de fato definido), restauramos escopo="" */
  static void insertDecl_post(TreeNode *t)
@@ -121,7 +121,7 @@ static void insertDecl_pre(TreeNode *t)
      if (t->nodekind == IdK && t->kind.id == Function)
      {
          /* terminou corpo da função => volta para escopo global,
-          * mas só se este IdK realmente era declaração (pai TypeK) */
+          * mas só se este IdK realmente era declaração */
          if (t->parent && t->parent->nodekind == TypeK)
          {
              strcpy(currentScopeName, "");
@@ -132,21 +132,14 @@ static void insertDecl_pre(TreeNode *t)
  /*--------------------------------------------------*/
  /* Passada 2: Insere USOS e checa se declarados     */
  /*--------------------------------------------------*/
- /*
-    A diferença aqui é que, ao registrar um uso,
-    buscamos primeiro no escopo local e, se não acharmos,
-    buscamos no global. Só então chamamos st_insert
-    com o escopo CORRETO (onde ele foi achado).
- */
  static void insertUse_pre(TreeNode *t)
  {
      if (t == NULL) return;
      if (t->nodekind != IdK) return;
  
-     /* 1) Se for Function e o pai for TypeK => DEFINIÇÃO novamente (já inserida) */
+     /* 1) Se for Function + pai TypeK => é a DEF de função (já inserida) */
      if (t->kind.id == Function && t->parent && t->parent->nodekind == TypeK)
      {
-         /* Entramos no escopo dela */
          strcpy(currentScopeName, t->attr.name);
          return;
      }
@@ -155,10 +148,8 @@ static void insertDecl_pre(TreeNode *t)
      if (t->kind.id == FunctionCall)
      {
          char *name = t->attr.name;
- 
-         /* Tenta local (caso admitamos função local) e global */
          int foundLocal  = st_lookup_local(name, currentScopeName);
-         int foundGlobal = st_lookup_local(name, ""); /* escopo global */
+         int foundGlobal = st_lookup_local(name, "");
  
          if (!foundLocal && !foundGlobal)
          {
@@ -166,8 +157,6 @@ static void insertDecl_pre(TreeNode *t)
          }
          else
          {
-             /* se achou local, registra uso no local.
-                caso contrário, registra uso no global */
              if (foundLocal)
                  st_insert(name, t->lineno, currentScopeName, NULL, NULL);
              else
@@ -181,7 +170,6 @@ static void insertDecl_pre(TreeNode *t)
          !(t->parent && t->parent->nodekind == TypeK))
      {
          char *name = t->attr.name;
- 
          int foundLocal  = st_lookup_local(name, currentScopeName);
          int foundGlobal = st_lookup_local(name, "");
  
@@ -200,13 +188,11 @@ static void insertDecl_pre(TreeNode *t)
      }
  
      /* 4) Caso o parser não separe FunctionCall de Function,
-        mas aqui percebamos que é chamada => heurística:
-        Se nodekind=IdK e kind.id=Function, mas pai NÃO é TypeK,
-        provavelmente é chamada => uso de função. */
+        mas percebamos que é chamada => se nodekind=IdK + kind.id==Function
+        e pai NÃO é TypeK, é uso de função */
      if (t->kind.id == Function && !(t->parent && t->parent->nodekind == TypeK))
      {
          char *name = t->attr.name;
- 
          int foundLocal  = st_lookup_local(name, currentScopeName);
          int foundGlobal = st_lookup_local(name, "");
  
@@ -221,14 +207,13 @@ static void insertDecl_pre(TreeNode *t)
              else
                  st_insert(name, t->lineno, "", NULL, NULL);
          }
-         /* não altera currentScopeName */
      }
  }
  
- /* Ao sair de um nó na segunda passada */
  static void insertUse_post(TreeNode *t)
  {
      if (t == NULL) return;
+ 
      /* Se for a definição de função (pai TypeK), saímos do escopo */
      if (t->nodekind == IdK && t->kind.id == Function
          && t->parent && t->parent->nodekind == TypeK)
@@ -290,14 +275,55 @@ static void insertDecl_pre(TreeNode *t)
  /*--------------------------------------------------*/
  /* Se quiser verificação de tipos, faça aqui        */
  /*--------------------------------------------------*/
+ 
+ /*
+    Exemplo de checagem para "invalid use of void expression":
+ 
+    Se a função é void, mas está sendo usada em um contexto 
+    que espera valor (por ex: a = funcVoid(); ), geramos erro.
+ */
  static void checkNode(TreeNode *t)
  {
-     (void)t;
-     /* implementar regras de coerência de tipos se desejar */
+     /* Verifica se este nó é uma chamada (FunctionCall) OU 
+        é um Function usado como chamada (pai não é TypeK). */
+     if (t->nodekind == IdK)
+     {
+         int isFunctionCallNode =
+             (t->kind.id == FunctionCall)
+             || (t->kind.id == Function && !(t->parent && t->parent->nodekind == TypeK));
+ 
+         if (isFunctionCallNode)
+         {
+             char *retType = st_dataType(t->attr.name, currentScopeName);
+             if (retType != NULL && strcmp(retType, "void") == 0)
+             {
+                 /* Se o pai for algo que indica "uso em expressão" */
+                 TreeNode *p = t->parent;
+                 if (p != NULL)
+                 {
+                     /*
+                       Se o pai for IdK ou ExpK=Operator ou StmtK=Assign,
+                       consideramos que está em contexto que espera valor.
+                     */
+                     if (p->nodekind == IdK
+                         || (p->nodekind == ExpK && p->kind.exp == Operator)
+                         || (p->nodekind == StmtK && p->kind.stmt == Assign))
+                     {
+                         semanticError(t->lineno, "invalid use of void expression", t->attr.name);
+                     }
+                 }
+             }
+         }
+     }
  }
  
  void typeCheck(TreeNode *syntaxTree)
  {
      traverse(syntaxTree, nullProc, checkNode);
-     /* poderia exibir se houve 'semanticErrors' etc. */
+     /* Se quiser, pode imprimir total de erros no final, etc. */
+     if (semanticErrors > 0)
+     {
+         // pce("Type check found %d semantic errors.\n", semanticErrors);
+     }
  }
+ 
