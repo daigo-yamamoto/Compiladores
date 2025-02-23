@@ -271,6 +271,29 @@ void printTree(TreeNode *tree)
                     printTree(tree->child[1]); // corpo do loop
                 UNINDENT;
                 break;
+                case Compound:
+                {
+                    INDENT;
+                
+                    // Em child[0], você tem as declarações locais (TypeK)
+                    if (tree->child[0])
+                    {
+                        INDENT;
+                        printTree(tree->child[0]);
+                        UNINDENT;
+                    }
+                
+                    // Em child[1], você tem a lista de statements (StmtK, ExpK etc.)
+                    if (tree->child[1])
+                    {
+                        INDENT;
+                        printTree(tree->child[1]);
+                        UNINDENT;
+                    }
+                
+                    UNINDENT;
+                    break;
+                }
             default:
                 pce("Unknown StmtKNode kind\n");
                 break;

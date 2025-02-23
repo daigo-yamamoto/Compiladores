@@ -59,7 +59,7 @@ extern ScopeNode *currentScope; /* current scope node */
 /**************************************************/
 
 typedef enum {StmtK, ExpK, IdK, TypeK} NodeKind;
-typedef enum {If, Assign, While} StmtKind;
+typedef enum { If, Assign, While, Compound } StmtKind;
 typedef enum {Operator, Constant, Return, FunctionCall} ExpKind;
 typedef enum {Variable, Array, Function} IdKind;
 typedef enum {Void, Int} TypeKind;
