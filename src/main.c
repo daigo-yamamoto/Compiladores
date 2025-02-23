@@ -16,7 +16,7 @@
 /* set NO_CODE to TRUE to get a compiler that does not
  * generate code
  */
-#define NO_CODE TRUE
+#define NO_CODE FALSE
 
 #include "util.h"
 #if NO_PARSE
@@ -45,8 +45,8 @@ ScopeNode *currentScope;
 int EchoSource = TRUE;
 int TraceScan = TRUE;
 int TraceParse = TRUE;
-int TraceAnalyze = FALSE;
-int TraceCode = FALSE;
+int TraceAnalyze = TRUE;
+int TraceCode = TRUE;
 
 int Error = FALSE;
 
@@ -104,6 +104,7 @@ int main( int argc, char * argv[] )
     if (TraceAnalyze) fprintf(listing,"\nType Checking Finished\n");
   }
 #if !NO_CODE
+  doneTABstartGEN();
   if (! Error)
   { char * codefile;
     int fnlen = strcspn(pgm,".");
